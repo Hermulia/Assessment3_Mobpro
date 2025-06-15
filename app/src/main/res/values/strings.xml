@@ -1,3 +1,22 @@
 <resources>
-    <string name="app_name">Assessment3_Mobpro</string>
+    <string name="app_name">Deskripsi Barang</string>
+    <string name="gambar">Gambar %1$s</string>
+    <string name="error">Gagal memuat data.. Koneksi error.</string>
+    <string name="try_again">Coba lagi</string>
+    <string name="profil">Profil</string>
+    <string name="tutup">Tutup</string>
+    <string name="logout">Logout</string>
+    <string name="tambah_barang">Tambah Barang</string>
+    <string name="nama">Nama</string>
+    <string name="batal">Batal</string>
+    <string name="simpan">Simpan</string>
+    <string name="hapus">Hapus</string>
+    <string name="edit">Edit</string>
+    <string name="konfirmasi_hapus">Konfirmasi Hapus</string>
+    <string name="dialog_hapus">Apakah Anda yakin ingin menghapus barang ini?</string>
+    <string name="pilih_gambar">Pilih Gambar</string>
+    <string name="pilih_sumber_gambar">Pilih sumber gambar</string>
+    <string name="gallery">Gallery</string>
+    <string name="camera">Camera</string>
+    <string name="deskripsi_des">Deskripsi</string>
 </resources>
