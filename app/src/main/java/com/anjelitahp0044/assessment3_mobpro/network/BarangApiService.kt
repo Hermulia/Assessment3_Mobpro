@@ -18,7 +18,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 
-private const val BASE_URL = "https://bee8-2402-5680-8761-96b9-1459-4801-872-2aaa.ngrok-free.app/"
+private const val BASE_URL = "https://8131-182-253-194-62.ngrok-free.app/"
 
 private val moshi = Moshi.Builder()
     .add(KotlinJsonAdapterFactory())
@@ -75,8 +75,8 @@ object BarangApi {
         retrofit.create(BarangApiService::class.java)
     }
 
-    fun getBarangUrl(gambar: String): String {
-        return "${BASE_URL}storage/$gambar"
+    fun getBarangUrl(imageId: String): String {
+        return "${BASE_URL}storage/$imageId"
     }
 }
 

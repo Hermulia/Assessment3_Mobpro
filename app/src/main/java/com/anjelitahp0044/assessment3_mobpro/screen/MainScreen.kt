@@ -95,6 +95,9 @@ fun MainScreen() {
 
     var showDialog by remember { mutableStateOf(false) }
     var showBarangDialog by remember { mutableStateOf(false) }
+    var showHapusDialog by remember { mutableStateOf(false) }
+    var barangToDelete by remember { mutableStateOf<Barang?>(null) }
+
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
@@ -166,6 +169,22 @@ fun MainScreen() {
                 viewModel.saveData(user.email, nama, deskripsi, bitmap!!)
                 showBarangDialog = false
             }
+        }
+
+        if (showHapusDialog) {
+            HapusDialog(
+                onDismissRequest = {
+                    showHapusDialog = false
+                    barangToDelete = null
+                },
+                onConfirmation = {
+                    barangToDelete?.let { hewan ->
+                        viewModel.deleteData(user.email, hewan.id)
+                    }
+                    showHapusDialog = false
+                    barangToDelete = null
+                }
+            )
         }
 
         if (errorMessage != null) {

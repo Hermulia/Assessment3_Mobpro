@@ -41,6 +41,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun saveData(userId: String, nama: String, deskripsi: String, bitmap: Bitmap) {
+        Log.d("MainViewModel", "User $userId, $nama, $deskripsi")
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = BarangApi.service.postBarang(
