@@ -62,6 +62,52 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun updateData(id: String, userId: String, nama: String, deskripsi: String, bitmap: Bitmap) {
+        Log.d("MainViewModel", "User $userId, $nama, $deskripsi")
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = BarangApi.service.updateBarang(
+                    id,
+                    userId,
+                    nama.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    deskripsi.toRequestBody("text/plain".toMediaTypeOrNull()),
+                    bitmap.toMultipartBody()
+                )
+
+                if (result.status == "success")
+                    retrieveData(userId)
+                else
+                    throw Exception(result.message)
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Failure: ${e.message}")
+                errorMessage.value = "Error: ${e.message}"
+            }
+        }
+    }
+
+
+    fun deleteData(userId: String, mobilId: String) {
+        Log.d("DEBUG", "delete Data: UserId= $userId, mobilId= $mobilId")
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = BarangApi.service.deleteData(
+                    userId = userId,
+                    id = mobilId
+                )
+
+                if (result.status == "success") {
+                    retrieveData(userId)
+                } else {
+                    throw Exception(result.message)
+                }
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Error delete: ${e.message}")
+                errorMessage.value = "Error: ${e.message}"
+            }
+        }
+    }
+
+
     private fun Bitmap.toMultipartBody(): MultipartBody.Part {
         val stream = ByteArrayOutputStream()
         compress(Bitmap.CompressFormat.JPEG, 80, stream)
@@ -69,7 +115,7 @@ class MainViewModel : ViewModel() {
         val requestBody = byteArray.toRequestBody(
             "image/jpg".toMediaTypeOrNull(), 0, byteArray.size)
         return MultipartBody.Part.createFormData(
-            "image", "image.jpg", requestBody)
+            "imageId", "image.jpg", requestBody)
     }
 
     fun clearMessage() { errorMessage.value = null }

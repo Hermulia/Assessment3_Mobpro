@@ -1,3 +1,4 @@
+// MainScreen.kt
 package com.anjelitahp0044.assessment3_mobpro.screen
 
 import android.content.ContentResolver
@@ -12,10 +13,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,6 +65,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.datastore.dataStore
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -97,12 +102,14 @@ fun MainScreen() {
     var showBarangDialog by remember { mutableStateOf(false) }
     var showHapusDialog by remember { mutableStateOf(false) }
     var barangToDelete by remember { mutableStateOf<Barang?>(null) }
-
+    var barangToEdit by remember { mutableStateOf<Barang?>(null) } // New state for editing
 
     var bitmap: Bitmap? by remember { mutableStateOf(null) }
     val launcher = rememberLauncherForActivityResult(CropImageContract()) {
         bitmap = getCroppedImage(context.contentResolver, it)
-        if (bitmap != null) showBarangDialog = true
+        // If a new image is selected via the launcher, show the BarangDialog
+        // and it will prioritize this new bitmap.
+        showBarangDialog = true
     }
 
     Scaffold(
@@ -134,24 +141,45 @@ fun MainScreen() {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                val options = CropImageContractOptions(
-                    null, CropImageOptions(
-                        imageSourceIncludeGallery = false,
-                        imageSourceIncludeCamera = true,
-                        fixAspectRatio = true
+            if (user.email.isNotEmpty()) {
+                FloatingActionButton(onClick = {
+                    // When adding a new item, ensure no existing item is being edited
+                    barangToEdit = null
+                    // Clear any previously selected bitmap, as this is a new item
+                    bitmap = null
+                    val options = CropImageContractOptions(
+                        null, CropImageOptions(
+                            imageSourceIncludeGallery = false,
+                            imageSourceIncludeCamera = true,
+                            fixAspectRatio = true
+                        )
                     )
-                )
-                launcher.launch(options)
-            }) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = stringResource(id = R.string.tambah_barang)
-                )
+                    launcher.launch(options)
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = stringResource(id = R.string.tambah_barang)
+                    )
+                }
             }
         }
     ) { innerPadding ->
-        ScreenContent(viewModel, user.email, Modifier.padding(innerPadding))
+        ScreenContent(
+            viewModel = viewModel,
+            userId = user.email,
+            modifier = Modifier.padding(innerPadding),
+            onBarangDelete = { barang ->
+                barangToDelete = barang
+                showHapusDialog = true
+            },
+            onBarangEdit = { barang -> // Handle edit click
+                barangToEdit = barang
+                // IMPORTANT: DO NOT set bitmap = null here.
+                // If a new image is picked, 'bitmap' will update.
+                // If not, BarangDialog will use barangToEdit's imageId.
+                showBarangDialog = true
+            }
+        )
 
         if (showDialog) {
             ProfilDialog(
@@ -164,10 +192,40 @@ fun MainScreen() {
 
         if (showBarangDialog) {
             BarangDialog(
-                bitmap = bitmap,
-                onDismissRequest = { showBarangDialog = false }) { nama, deskripsi ->
-                viewModel.saveData(user.email, nama, deskripsi, bitmap!!)
-                showBarangDialog = false
+                bitmap = bitmap, // This is the NEWLY selected bitmap (if any)
+                barang = barangToEdit, // This is the EXISTING barang for editing
+                onDismissRequest = {
+                    showBarangDialog = false
+                    barangToEdit = null
+                    bitmap = null // Clear bitmap when dialog is dismissed
+                },
+                // **** NEW PARAMETER: Pass the launcher down ****
+                onImagePickRequest = {
+                    val options = CropImageContractOptions(
+                        null, CropImageOptions(
+                            imageSourceIncludeGallery = true, // Enable Gallery
+                            imageSourceIncludeCamera = true,  // Enable Camera
+                            fixAspectRatio = true
+                        )
+                    )
+                    launcher.launch(options)
+                }
+            ) { id, nama, deskripsi ->
+                if (id == null) { // Logic for adding a NEW item
+                    bitmap?.let { currentImageBitmap ->
+                        viewModel.saveData(user.email, nama, deskripsi, currentImageBitmap)
+                        showBarangDialog = false
+                        barangToEdit = null
+                        bitmap = null
+                    } ?: run {
+                        Toast.makeText(context, "Please select an image for the new item.", Toast.LENGTH_SHORT).show()
+                    }
+                } else { // Logic for UPDATING an existing item
+                    viewModel.updateData(id, user.email, nama, deskripsi, bitmap!!)
+                    showBarangDialog = false
+                    barangToEdit = null
+                    bitmap = null
+                }
             }
         }
 
@@ -178,8 +236,8 @@ fun MainScreen() {
                     barangToDelete = null
                 },
                 onConfirmation = {
-                    barangToDelete?.let { hewan ->
-                        viewModel.deleteData(user.email, hewan.id)
+                    barangToDelete?.let { barang ->
+                        viewModel.deleteData(user.email, barang.id)
                     }
                     showHapusDialog = false
                     barangToDelete = null
@@ -195,7 +253,13 @@ fun MainScreen() {
 }
 
 @Composable
-fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier = Modifier) {
+fun ScreenContent(
+    viewModel: MainViewModel,
+    userId: String,
+    modifier: Modifier = Modifier,
+    onBarangDelete: (Barang) -> Unit,
+    onBarangEdit: (Barang) -> Unit // New lambda for editing
+) {
     val data by viewModel.data
     val status by viewModel.status.collectAsState()
 
@@ -215,11 +279,19 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
 
         ApiStatus.SUCCESS -> {
             LazyVerticalGrid(
-                modifier = modifier.fillMaxSize().padding(4.dp),
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(4.dp),
                 columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(data) { ListItem(barang = it) }
+                items(data) { barang ->
+                    ListItem(
+                        barang = barang,
+                        onDeleteClick = onBarangDelete,
+                        onEditClick = onBarangEdit
+                    )
+                }
             }
         }
 
@@ -243,9 +315,17 @@ fun ScreenContent(viewModel: MainViewModel, userId: String, modifier: Modifier =
 }
 
 @Composable
-fun ListItem(barang: Barang) {
+fun ListItem(barang: Barang, onDeleteClick: (Barang) -> Unit, onEditClick: (Barang) -> Unit) {
+
+    val context = LocalContext.current
+    val dataStore = UserDataStore(context)
+    val user by dataStore.userFlow.collectAsState(User())
+
     Box(
-        modifier = Modifier.padding(4.dp).border(1.dp, Color.Gray),
+        modifier = Modifier
+            .padding(4.dp)
+            .border(1.dp, Color.Gray)
+            .clickable { onEditClick(barang) }, // Make the whole item clickable for edit
         contentAlignment = Alignment.BottomCenter
     ) {
         AsyncImage(
@@ -257,18 +337,37 @@ fun ListItem(barang: Barang) {
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
             error = painterResource(id = R.drawable.broken_img),
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
         )
         Column(
-            modifier = Modifier.fillMaxWidth().padding(4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
                 .background(Color(red = 0f, green = 0f, blue = 0f, alpha = 0.5f))
                 .padding(4.dp)
         ) {
-            Text(
-                text = barang.nama,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = barang.nama,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                if (user.email.isNotEmpty()) {
+                    IconButton(onClick = { onDeleteClick(barang) }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.hapus),
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
             Text(
                 text = barang.deskripsi,
                 fontStyle = FontStyle.Italic,
@@ -353,6 +452,6 @@ private fun getCroppedImage(
 @Composable
 fun MainScreenPreview() {
     Assessment3_MobproTheme {
-    MainScreen()
+        MainScreen()
     }
 }

@@ -18,7 +18,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 
-private const val BASE_URL = "https://8131-182-253-194-62.ngrok-free.app/"
+private const val BASE_URL = "https://3cae-182-253-194-62.ngrok-free.app/"
 
 private val moshi = Moshi.Builder()
     .add(KotlinJsonAdapterFactory())
@@ -45,7 +45,7 @@ interface BarangApiService {
     ): OpStatus
 
     @Multipart
-    @POST("api/barang")
+    @POST("api/barang/{id}")
     suspend fun updateBarang(
         @Path("id") id : String,
         @Header("Authorization") userId: String,
